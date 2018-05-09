@@ -5,7 +5,7 @@
 import boto3
 from operator import itemgetter
 
-region='us-west-2'
+region = 'us-west-2'
 
 elbv2 = boto3.client('elbv2', region)
 
@@ -17,7 +17,7 @@ for lb in lbs['LoadBalancers']:
     lbtag = elbv2.describe_tags(ResourceArns=[lb['LoadBalancerArn']])
     for tag in lbtag['TagDescriptions'][0]['Tags']:
         if tag['Key'] == 'Site':
-            unsorted.append({'site':tag['Value'],'dnsname':lb['DNSName']})
+            unsorted.append({'site': tag['Value'], 'dnsname': lb['DNSName']})
 
 # Sort it by the site name
 output = sorted(unsorted, key=itemgetter('site'))

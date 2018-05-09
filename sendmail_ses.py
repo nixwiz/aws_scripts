@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
-# Quick, dirty, ugly script to mimic use of sendmail -i -t but to send the email via SES
-# Mainly meant to be used by superlance/crashmail for notifications from supervisord which
-# assumes the above functionality
+# Quick, dirty, ugly script to mimic use of sendmail -i -t but to send the
+# email via SES.
 #
-# This keeps from having the email show up from a random EC2 instance and having to add
-# the NAT gateway to the SPF record, having to run sendmail locally, etc.
+# Thisis mainly meant to be used by superlance/crashmail for notifications from
+# supervisord which  assumes the above functionality from sendmail
+#
+# This keeps from having the email show up from a random EC2 instance and
+# having to add the NAT gateway to the SPF record, having to run sendmail
+# locally, etc.
 
 import sys
 import boto3
@@ -15,13 +18,14 @@ import sys
 
 def main(argv):
 
-    # Get the list of mail recipients. Yes this seems redundant since the -m option of crashmail itself
-    # provides this, but it doesn't support multiple recipients.  We need to also be able to add some of
-    # the devs as recipients.
+    # Get the list of mail recipients. Yes this seems redundant since the -m
+    # option of crashmail itself provides this, but it doesn't support multiple
+    # recipients.  We need to also be able to add some of the devs as
+    # recipients.
     mailto = ''
 
     try:
-        opts, args = getopt.getopt(argv,"m:f:",["mailto=", "from="])
+        opts, args = getopt.getopt(argv, "m:f:", ["mailto=", "from="])
     except getopt.GetoptError:
         print ('sendmail_ses.py -f <from email address> -m <comma seperated list of email addresses, without spaces>')
         sys.exit(2)
@@ -34,12 +38,13 @@ def main(argv):
 
     mailtolist = mailto.split(",")
 
-    # Read in the message and parse out the headers. superlance/crashmail seems to only send
-    # the following based on this example so it is all we care about:
+    # Read in the message and parse out the headers. superlance/crashmail
+    # seems to only send the following based on this example so it is all
+    # we care about:
     #
     # To: recipients@company.com
     # Subject:  filewatcher crashed at 2018-04-04 14:46:23,031
-    # 
+    #
     # Process filewatcher in group filewatcher exited unexpectedly (pid 5296) from state RUNNING
 
     lines = sys.stdin.readlines()
@@ -94,5 +99,4 @@ def main(argv):
     # print(response)
 
 if __name__ == "__main__":
-   main(sys.argv[1:])
-
+    main(sys.argv[1:])

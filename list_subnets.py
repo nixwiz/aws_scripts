@@ -17,9 +17,9 @@ for subnet in subnets['Subnets']:
     for tag in subnet['Tags']:
         if tag['Key'] == 'Name':
             name = tag['Value']
-        unsorted.append({'cidr':subnet['CidrBlock'],'az':subnet['AvailabilityZone'],'name':name})
+        unsorted.append({'cidr': subnet['CidrBlock'], 'az': subnet['AvailabilityZone'], 'name': name})
 
-#Sort by subnet IP
-output = sorted(unsorted, key=lambda ip:  tuple(map(int, re.split('\.|/',ip['cidr']))))
+# Sort by subnet IP
+output = sorted(unsorted, key=lambda ip:  tuple(map(int, re.split('\.|/', ip['cidr']))))
 for out in output:
     print("{:24}{:16}{}".format(out['cidr'], out['az'], out['name']))
