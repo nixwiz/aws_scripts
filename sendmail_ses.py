@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/env python3
 
 # Quick, dirty, ugly script to mimic use of sendmail -i -t but to send the email via SES
 # Mainly meant to be used by superlance/crashmail for notifications from supervisord which
@@ -21,21 +21,23 @@ def main(argv):
     mailto = ''
 
     try:
-        opts, args = getopt.getopt(argv,"m:",["mailto="])
+        opts, args = getopt.getopt(argv,"m:f:",["mailto=", "from="])
     except getopt.GetoptError:
-        print ('sendmail_ses.py -m <comma seperated list of email addresses, without spaces>')
+        print ('sendmail_ses.py -f <from email address> -m <comma seperated list of email addresses, without spaces>')
         sys.exit(2)
 
     for opt, arg in opts:
         if opt == '-m':
             mailto = arg
+        if opt == '-f':
+            mailfrom = arg
 
     mailtolist = mailto.split(",")
 
     # Read in the message and parse out the headers. superlance/crashmail seems to only send
     # the following based on this example so it is all we care about:
     #
-    # To: devops@riskproadvisor.com
+    # To: recipients@company.com
     # Subject:  filewatcher crashed at 2018-04-04 14:46:23,031
     # 
     # Process filewatcher in group filewatcher exited unexpectedly (pid 5296) from state RUNNING
@@ -86,7 +88,7 @@ def main(argv):
                 'Data': subject,
             },
         },
-        Source='devops@riskproadvisor.com',
+        Source=mailfrom,
     )
 
     # print(response)
