@@ -3,8 +3,8 @@
 # Quick, dirty, ugly script to mimic use of sendmail -i -t but to send the
 # email via SES.
 #
-# Thisis mainly meant to be used by superlance/crashmail for notifications from
-# supervisord which  assumes the above functionality from sendmail
+# This is mainly meant to be used by superlance/crashmail for notifications
+# from supervisord which  assumes the above functionality from sendmail
 #
 # This keeps from having the email show up from a random EC2 instance and
 # having to add the NAT gateway to the SPF record, having to run sendmail
