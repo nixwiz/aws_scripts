@@ -32,7 +32,9 @@ def main(argv):
                     lbarn = lbtag['TagDescriptions'][0]['ResourceArn']
 
     if len(lbarn) == 0:
-        print("Site {} not found.  Does the ELB have the appropriate Site tag?".format(site))
+        print(
+            "Site {} not found.  Does the ELB have the appropriate Site tag?"
+            .format(site))
         sys.exit(1)
 
     tgs = elbv2.describe_target_groups(LoadBalancerArn=lbarn)
@@ -40,7 +42,8 @@ def main(argv):
     instanceids = []
 
     for tg in tgs['TargetGroups']:
-        targets = elbv2.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])
+        targets = elbv2.describe_target_health(
+                TargetGroupArn=tg['TargetGroupArn'])
         for target in targets['TargetHealthDescriptions']:
             if target['Target']['Id'] not in instanceids:
                 instanceids.append(target['Target']['Id'])

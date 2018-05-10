@@ -1,0 +1,1166 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "CloudFormation Template for SonarQube Homework",
+    "Parameters": {
+        "EC2InstanceType": {
+            "Description": "The Instance Type to use for the EC2 instance.",
+            "Type": "String",
+            "MinLength": "1",
+            "Default": "c4.large",
+            "AllowedValues": [
+                "c1.xlarge", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c4.large",
+                "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "c5.large",
+                "c5.xlarge", "c5.2xlarge", "c5.4xlarge", "c5.9xlarge", "c5.18xlarge",
+                "d2.xlarge", "d2.2xlarge", "d2.4xlarge", "d2.8xlarge", "f1.2xlarge",
+                "f1.16xlarge", "g2.2xlarge", "g3.4xlarge", "g3.8xlarge", "g3.16xlarge",
+                "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i3.large", "i3.xlarge",
+                "i3.2xlarge", "i3.4xlarge", "i3.8xlarge", "i3.16xlarge", "m1.large",
+                "m1.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.xlarge", "m3.2xlarge",
+                "m4.large", "m4.xlarge", "m4.2xlarge", "m4.4xlarge", "m4.10xlarge",
+                "m4.16xlarge", "p2.xlarge", "p2.8xlarge", "p2.16xlarge", "p3.2xlarge",
+                "p3.8xlarge", "p3.16xlarge", "r3.xlarge", "r3.2xlarge", "r3.4xlarge",
+                "r4.large", "r4.xlarge", "r4.2xlarge", "r4.4xlarge", "r4.8xlarge",
+                "r4.16xlarge", "x1.16xlarge", "x1.32xlarge", "x1e.xlarge", "x1e.2xlarge",
+                "x1e.4xlarge", "x1e.8xlarge", "x1e.16xlarge", "x1e.32xlarge"
+            ],
+            "ConstraintDescription": "must be a valid EC2 instance type."
+        },
+        "EC2KeyPair": {
+            "Description": "The EC2 Key Pair to use for the EC2 instance.",
+            "Type": "AWS::EC2::KeyPair::KeyName"
+        },
+        "DBInstanceType": {
+            "Description": "The Instance Type to use for the RDS instances.",
+            "Type": "String",
+            "MinLength": "1",
+            "Default": "db.r4.large",
+            "AllowedValues": [
+                "db.r3.large", "db.r3.xlarge", "db.r3.2xlarge", "db.r3.4xlarge", "db.r3.8xlarge",
+                "db.r4.large", "db.r4.xlarge", "db.r4.2xlarge", "db.r4.4xlarge", "db.r4.8xlarge",
+                "db.r4.16xlarge", "db.t2.small", "db.t2.medium"
+            ],
+            "ConstraintDescription": "must be a valid Aurora supported instance type."
+        },
+        "SonarQubeMySQLPassword": {
+            "Description": "The password to use for SonarQube to access MySQL.",
+            "Type": "String",
+            "MinLength": "12"
+        },
+        "MasterMySQLPassword": {
+            "Description": "The password to use for the Master MySQL user (sonar_dba).",
+            "Type": "String",
+            "MinLength": "12"
+        }
+    },
+    "Mappings": {
+        "Networking": {
+            "VPC": {
+                "CIDR": "10.20.0.0/16"
+            },
+            "PublicSubnetOne": {
+                "CIDR": "10.20.0.0/24"
+            },
+            "PublicSubnetTwo": {
+                "CIDR": "10.20.1.0/24"
+            },
+            "WebSubnetOne": {
+                "CIDR": "10.20.10.0/24"
+            },
+            "WebSubnetTwo": {
+                "CIDR": "10.20.11.0/24"
+            },
+            "DBSubnetOne": {
+                "CIDR": "10.20.20.0/24"
+            },
+            "DBSubnetTwo": {
+                "CIDR": "10.20.21.0/24"
+            }
+        },
+        "Image": {
+            "us-east-1": {
+                "AMI": "ami-55ef662f"
+            },
+            "us-east-2": {
+                "AMI": "ami-15e9c770"
+            },
+            "us-west-1": {
+                "AMI": "ami-a51f27c5"
+            },
+            "us-west-2": {
+                "AMI": "ami-bf4193c7"
+            }
+        }
+    },
+    "Resources": {
+        "SonarQubeVPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "VPC",
+                        "CIDR"
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeVPC"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubePublicSubnetOne": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "PublicSubnetOne",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": {
+                                "Ref": "AWS::Region"
+                            }
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubePublicSubnetOne"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubePublicSubnetTwo": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "PublicSubnetTwo",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": {
+                                "Ref": "AWS::Region"
+                            }
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubePublicSubnetTwo"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeWebSubnetOne": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "WebSubnetOne",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": {
+                                "Ref": "AWS::Region"
+                            }
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeWebSubnetOne"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeWebSubnetTwo": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "WebSubnetTwo",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": {
+                                "Ref": "AWS::Region"
+                            }
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeWebSubnetTwo"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeDbSubnetOne": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "DBSubnetOne",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "0",
+                        {
+                            "Fn::GetAZs": {
+                                "Ref": "AWS::Region"
+                            }
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeDbSubnetOne"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeDbSubnetTwo": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": [
+                        "Networking",
+                        "DBSubnetTwo",
+                        "CIDR"
+                    ]
+                },
+                "AvailabilityZone": {
+                    "Fn::Select": [
+                        "1",
+                        {
+                            "Fn::GetAZs": {
+                                "Ref": "AWS::Region"
+                            }
+                        }
+                    ]
+                },
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeDbSubnetTwo"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeInternetGateway"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "InternetGatewayToVPC": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "ElasticIp": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "NATGateway": {
+            "DependsOn": "InternetGatewayToVPC",
+            "Type": "AWS::EC2::NatGateway",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "ElasticIp",
+                        "AllocationId"
+                    ]
+                },
+                "SubnetId": {
+                    "Ref": "SonarQubePublicSubnetOne"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeNATGateway"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "PublicRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubePublicRouteTable"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "PublicRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PublicRouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "PublicSubnetOneRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SonarQubePublicSubnetOne"
+                },
+                "RouteTableId": {
+                    "Ref": "PublicRouteTable"
+                }
+            }
+        },
+        "PublicSubnetTwoRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SonarQubePublicSubnetTwo"
+                },
+                "RouteTableId": {
+                    "Ref": "PublicRouteTable"
+                }
+            }
+        },
+        "PrivateRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubePrivateRouteTable"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "PrivateRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PrivateRouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "NatGatewayId": {
+                    "Ref": "NATGateway"
+                }
+            }
+        },
+        "WebSubnetOneRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SonarQubeWebSubnetOne"
+                },
+                "RouteTableId": {
+                    "Ref": "PrivateRouteTable"
+                }
+            }
+        },
+        "WebSubnetTwoRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SonarQubeWebSubnetTwo"
+                },
+                "RouteTableId": {
+                    "Ref": "PrivateRouteTable"
+                }
+            }
+        },
+        "DBSubnetOneRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SonarQubeDbSubnetOne"
+                },
+                "RouteTableId": {
+                    "Ref": "PrivateRouteTable"
+                }
+            }
+        },
+        "DBSubnetTwoRouteTableAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "SonarQubeDbSubnetTwo"
+                },
+                "RouteTableId": {
+                    "Ref": "PrivateRouteTable"
+                }
+            }
+        },
+        "ExternalSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupName": "External-Security-Group",
+                "GroupDescription": "External security group",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "38.140.26.74/32"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "209.210.189.44/32"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeExternalSecurityGroup"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "WebSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupName": "Web-Security-Group",
+                "GroupDescription": "Web security group",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "9000",
+                        "ToPort": "9000",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "Networking",
+                                "PublicSubnetOne",
+                                "CIDR"
+                            ]
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "9000",
+                        "ToPort": "9000",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "Networking",
+                                "PublicSubnetTwo",
+                                "CIDR"
+                            ]
+                        }
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeWebSecurityGroup"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "DBSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupName": "DB-Security-Group",
+                "GroupDescription": "Database security group",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "3306",
+                        "ToPort": "3306",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "Networking",
+                                "WebSubnetOne",
+                                "CIDR"
+                            ]
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "3306",
+                        "ToPort": "3306",
+                        "CidrIp": {
+                            "Fn::FindInMap": [
+                                "Networking",
+                                "WebSubnetTwo",
+                                "CIDR"
+                            ]
+                        }
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeDBSecurityGroup"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "DBSubnetGroup": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "Subnet group for DB",
+                "SubnetIds": [
+                    {
+                        "Ref": "SonarQubeDbSubnetOne"
+                    },
+                    {
+                        "Ref": "SonarQubeDbSubnetTwo"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeWebDBSubnetGroup"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeDBCluster": {
+            "Type": "AWS::RDS::DBCluster",
+            "Properties": {
+                "Engine": "aurora",
+                "Port": "3306",
+                "StorageEncrypted": "True",
+                "BackupRetentionPeriod": "14",
+                "PreferredBackupWindow": "08:00-08:30",
+                "PreferredMaintenanceWindow": "Tue:12:00-Tue:12:30",
+                "MasterUsername": "sonar_dba",
+                "MasterUserPassword": {
+                    "Ref": "MasterMySQLPassword"
+                },
+                "DBSubnetGroupName": {
+                    "Ref": "DBSubnetGroup"
+                },
+                "VpcSecurityGroupIds": [
+                    {
+                        "Ref": "DBSecurityGroup"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeDBCluster"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeDBInstanceOne": {
+            "DependsOn": "InternetGatewayToVPC",
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "DBClusterIdentifier": {
+                    "Ref": "SonarQubeDBCluster"
+                },
+                "DBInstanceIdentifier": "SonarQubeDBInstanceOne",
+                "DBInstanceClass": {
+                    "Ref": "DBInstanceType"
+                },
+                "Engine": "aurora",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeDBInstanceOne"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeDBInstanceTwo": {
+            "DependsOn": "InternetGatewayToVPC",
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "DBClusterIdentifier": {
+                    "Ref": "SonarQubeDBCluster"
+                },
+                "DBInstanceIdentifier": "SonarQubeDBInstanceTwo",
+                "DBInstanceClass": {
+                    "Ref": "DBInstanceType"
+                },
+                "Engine": "aurora",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeDBInstanceTwo"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "SonarQubeRole",
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/"
+            }
+        },
+        "SonarQubeProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "SonarQubeRole"
+                    }
+                ],
+                "InstanceProfileName": "SonarQubeInstanceProfile"
+            }
+        },
+        "SonarQubeELB": {
+            "DependsOn": "InternetGatewayToVPC",
+            "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties": {
+                "Name": "SonarQubeELB",
+                "Scheme": "internet-facing",
+                "SecurityGroups": [
+                    {
+                        "Ref": "ExternalSecurityGroup"
+                    }
+                ],
+                "Subnets": [
+                    {
+                        "Ref": "SonarQubePublicSubnetOne"
+                    },
+                    {
+                        "Ref": "SonarQubePublicSubnetTwo"
+                    }
+                ],
+                "IpAddressType": "ipv4",
+                "LoadBalancerAttributes": [
+                    {
+                        "Key": "idle_timeout.timeout_seconds",
+                        "Value": "900"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeELB"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeHTTPListener": {
+            "Type": "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties": {
+                "DefaultActions": [
+                    {
+                        "Type": "forward",
+                        "TargetGroupArn": {
+                            "Ref": "SonarQubeHTTP9000TargetGroup"
+                        }
+                    }
+                ],
+                "LoadBalancerArn": {
+                    "Ref": "SonarQubeELB"
+                },
+                "Port": "80",
+                "Protocol": "HTTP"
+            }
+        },
+        "SonarQubeHTTP9000TargetGroup": {
+            "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties": {
+                "Name": "SonarQubeHTTP9000TargetGroup",
+                "Port": 9000,
+                "Protocol": "HTTP",
+                "HealthCheckPath": "/",
+                "Matcher": {
+                    "HttpCode": "200"
+                },
+                "HealthCheckIntervalSeconds": 30,
+                "HealthCheckProtocol": "HTTP",
+                "HealthCheckTimeoutSeconds": 5,
+                "HealthyThresholdCount": 5,
+                "UnhealthyThresholdCount": 2,
+                "TargetGroupAttributes": [
+                    {
+                        "Key": "deregistration_delay.timeout_seconds",
+                        "Value": "300"
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "SonarQubeVPC"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeHTTP9000TargetGroup"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube"
+                    }
+                ]
+            }
+        },
+        "SonarQubeASG": {
+            "DependsOn": [
+                "InternetGatewayToVPC",
+                "SonarQubeDBCluster",
+                "SonarQubeDBInstanceOne",
+                "SonarQubeDBInstanceTwo"
+            ],
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "VPCZoneIdentifier": [
+                    {
+                        "Ref": "SonarQubeWebSubnetOne"
+                    },
+                    {
+                        "Ref": "SonarQubeWebSubnetTwo"
+                    }
+                ],
+                "LaunchConfigurationName": {
+                    "Ref": "SonarQubeASGInstance"
+                },
+                "MinSize": "1",
+                "MaxSize": "1",
+                "DesiredCapacity": "1",
+                "TargetGroupARNs": [
+                    {
+                        "Ref": "SonarQubeHTTP9000TargetGroup"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "SonarQubeASG",
+                        "PropagateAtLaunch": "True"
+                    },
+                    {
+                        "Key": "Application",
+                        "Value": "SonarQube",
+                        "PropagateAtLaunch": "True"
+                    }
+                ]
+            }
+        },
+        "SonarQubeASGInstance": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "commands": {
+                            "01_customize_instance": {
+                                "command": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "#!/bin/bash\n",
+                                            "/usr/bin/yum -y update \n",
+                                            "yum -y install parted mysql java-1.8.0 \n",
+                                            "/usr/sbin/alternatives --set java /usr/lib/jvm/jre-1.8.0-openjdk.x86_64/bin/java \n",
+                                            "while [ ! -e /dev/xvdf ]; do echo waiting for /dev/xvdf to attach; sleep 10; done \n",
+                                            "dd if=/dev/zero of=/dev/xvdf bs=512 count=1 \n",
+                                            "sleep 10 \n",
+                                            "parted --script /dev/xvdf mklabel gpt mkpart 'sonrvol1' 'ext4' '0%' '100%' print all \n",
+                                            "sleep 5 \n",
+                                            "pvcreate /dev/xvdf1 \n",
+                                            "sleep 5 \n",
+                                            "vgcreate vg_sonar /dev/sdf1 \n",
+                                            "lvcreate -l 100%pvs -n lv_sonar vg_sonar \n",
+                                            "sleep 5 \n",
+                                            "mkfs -t ext4 /dev/mapper/vg_sonar-lv_sonar \n",
+                                            "sleep 15 \n",
+                                            "echo '/dev/mapper/vg_sonar-lv_sonar /opt/sonar ext4 defaults 1 2' >> /etc/fstab \n",
+                                            "mkdir /opt/sonar \n",
+                                            "mount -a -t ext4 \n",
+                                            "sysctl -w vm.max_map_count=262144 \n",
+                                            "sysctl -w fs.file-max=65536 \n",
+                                            "echo 'vm.max_map_count=262144' > /etc/sysctl.d/99-sonarqube.conf \n",
+                                            "echo 'fs.file-max=65536' >> /etc/sysctl.d/99-sonarqube.conf \n",
+                                            "echo 'sonar   -   nofile   65536' > /etc/security/limits.d/99-sonarqube.conf \n",
+                                            "echo '[client]' > /root/.my.cnf \n",
+                                            "echo 'host=",
+                                            {
+                                                "Fn::GetAtt": [
+                                                    "SonarQubeDBCluster",
+                                                    "Endpoint.Address"
+                                                ]
+                                            },
+                                            "' >> /root/.my.cnf \n",
+                                            "echo 'user=sonar_dba' >> /root/.my.cnf \n",
+                                            "echo 'password=",
+                                            {
+                                                "Ref": "MasterMySQLPassword"
+                                            },
+                                            "' >> /root/.my.cnf \n",
+                                            "sleep 5 \n",
+                                            "if echo 'show databases;' | mysql --defaults-file=/root/.my.cnf | grep -q sonarqube \n",
+                                            "then \n",
+                                            "echo 'sonarqube database already exists' \n",
+                                            "else \n",
+                                            "echo 'creating sonarqube database' \n",
+                                            "echo 'create database sonarqube;' | mysql --defaults-file=/root/.my.cnf \n",
+                                            "fi \n",
+                                            "if echo 'select user from mysql.user;' | mysql --defaults-file=/root/.my.cnf | grep -q sonarqube \n",
+                                            "then \n",
+                                            "echo 'sonarqube user already exists' \n",
+                                            "else \n",
+                                            "echo 'creating sonarqube database user' \n",
+                                            "echo \"create user 'sonarqube'@'%' identified by '",
+                                            {
+                                                "Ref": "SonarQubeMySQLPassword"
+                                            },
+                                            "';\" | mysql --defaults-file=/root/.my.cnf \n",
+                                            "echo \"grant all on sonarqube.* to 'sonarqube'@'%';\" | mysql --defaults-file=/root/.my.cnf \n",
+                                            "echo \"flush privileges;\" | mysql --defaults-file=/root/.my.cnf \n",
+                                            "fi \n",
+                                            "sudo wget -O /etc/yum.repos.d/sonar.repo http://downloads.sourceforge.net/project/sonar-pkg/rpm/sonar.repo \n",
+                                            "yum -y install sonar \n",
+                                            "chkconfig sonar on \n",
+                                            "echo 'sonar.jdbc.username=sonarqube' >> /opt/sonar/conf/sonar.properties \n",
+                                            "echo 'sonar.jdbc.password=",
+                                            {
+                                                "Ref": "SonarQubeMySQLPassword"
+                                            },
+                                            "' >> /opt/sonar/conf/sonar.properties \n",
+                                            "echo 'sonar.jdbc.url=jdbc:mysql://",
+                                            {
+                                                "Fn::GetAtt": [
+                                                    "SonarQubeDBCluster",
+                                                    "Endpoint.Address"
+                                                ]
+                                            },
+                                            ":3306/sonarqube?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true&useConfigs=maxPerformance&useSSL=false' >> /opt/sonar/conf/sonar.properties \n",
+                                            "service sonar start \n"
+                                        ]
+                                    ]
+                                }
+                            }
+                        },
+                        "files": {
+                            "/etc/cfn/cfn-hup.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[main]\n",
+                                            "stack=",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            },
+                                            "\n",
+                                            "region=",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000400",
+                                "owner": "root",
+                                "group": "root"
+                            },
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[cfn-auto-reloader-hook]\n",
+                                            "triggers=post.update\n",
+                                            "path=Resources.ContainerInstances.Metadata.AWS::CloudFormation::Init\n",
+                                            "action=/opt/aws/bin/cfn-init -v ",
+                                            "         --stack ",
+                                            {
+                                                "Ref": "AWS::StackName"
+                                            },
+                                            "         --resource SonarQubeASGInstance ",
+                                            "         --region ",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "\n",
+                                            "runas=root\n"
+                                        ]
+                                    ]
+                                }
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "cfn-hup": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true",
+                                    "files": [
+                                        "/etc/cfn/cfn-hup.conf",
+                                        "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "InstanceType": {
+                    "Ref": "EC2InstanceType"
+                },
+                "KeyName": {
+                    "Ref": "EC2KeyPair"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "WebSecurityGroup"
+                    }
+                ],
+                "IamInstanceProfile": {
+                    "Ref": "SonarQubeProfile"
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "Image",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                },
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sdf",
+                        "Ebs": {
+                            "VolumeSize": "30",
+                            "VolumeType": "io1",
+                            "Iops": "1500"
+                        }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -xe\n",
+                                "yum install -y aws-cfn-bootstrap aws-cli \n",
+                                "/opt/aws/bin/cfn-init -v ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource SonarQubeASGInstance ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n",
+                                "/opt/aws/bin/cfn-signal -e $? ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource SonarQubeASG ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "SonarQubeDashboard": {
+            "Type": "AWS::CloudWatch::Dashboard",
+            "Properties": {
+                "DashboardName": "SonarQube",
+                "DashboardBody": {
+                    "Fn::Sub": "{\"widgets\":[{\"type\":\"metric\",\"x\":0,\"y\":0,\"width\":6,\"height\":6,\"properties\":{\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/EC2\",\"CPUUtilization\",\"AutoScalingGroupName\",\"${SonarQubeASG}\"]],\"region\":\"${AWS::Region}\",\"title\":\"EC2 CPU Utilization\"}},{\"type\":\"metric\",\"x\":6,\"y\":0,\"width\":6,\"height\":6,\"properties\":{\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/RDS\",\"CPUUtilization\",\"Role\",\"WRITER\",\"DBClusterIdentifier\",\"${SonarQubeDBCluster}\"]],\"region\":\"${AWS::Region}\",\"title\":\"RDS CPU Utilization\"}}]}"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "SonarQubeURL": {
+            "Description": "DNS name of the created ELB",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "http://",
+                        {
+                            "Fn::GetAtt": [
+                                "SonarQubeELB",
+                                "DNSName"
+                            ]
+                        },
+                        "/"
+                    ]
+                ]
+            }
+        }
+    }
+}
