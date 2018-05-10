@@ -1,6 +1,6 @@
 # Systems Engineer Homework
 
-## Notes:
+## Notes
 
 This was originally meant as the solution for a "homework" assigment for a job for which I had applied.  I don't have the original text of the assignment available, but the gist is to create an instance of [SonarQube](https://www.sonarqube.org) in a new/separate VPC with external access only allowed via some predetermined "office" IP addresses.
 
